@@ -2,8 +2,8 @@
 # — — ———  REBUS: entropy agglomeration of words in a text  ——— — —  #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # On this software implementation, please refer to:                  #
-# Fidaner, I. B. & Cemgil, A. T. (2014) Entropy Agglomeration of     #
-#     Words in a Literary Text, NIPS 2014 Modern ML+NLP Workshop     #
+# Fidaner, I. B. & Cemgil, A. T. (2014) Clustering Words by Projec-  #
+#     tion Entropy, submitted to NIPS 2014 Modern ML+NLP Workshop    #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # On entropy agglomeration and related concepts, please refer to:    #
 # Fidaner, I. B. & Cemgil, A. T. (2013) Summary Statistics for Par-  #
@@ -412,11 +412,15 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile ):
 #~~~~~~~~~~~~~~~~~~~~~~~#
 
 text_names = [ 'ulysses' ]
-merge_lines=0
+# put several text names to process several inputs in sequence
+
+merge_lines = 0
+# 0: put each line in a separate paragraph (separated by single newlines)
+# 1: put consequent lines in the same paragraph (separated by double newlines)
 
 min_proj_sizes = [10, 11, 12, 15, 20, 30, 40, 60,  150]
 max_proj_sizes = [10, 11, 13, 17, 25, 39, 59, 149, inf]
-
+# for each of the ranges, minimum and maximum number of paragraphs that the words are allowed to occur in
 
 for text_name in text_names:
     assert os.path.exists(text_name)==0, 'You will need to remove this directory: %s.' % text_name
