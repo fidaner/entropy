@@ -19,7 +19,8 @@ import math
 import numpy
 import scipy
 import codecs
-import winsound
+#import winsound
+import traceback
 from pylab import *
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -30,9 +31,9 @@ def projection_entropy( nym_count, blocks, block_weights, subset ):
     assert sorted(list(set(subset))) == sorted(subset), 'This cluster is not a set: %r' % subset
     pe = 0
     proj = [filter(lambda x: x in subset, sublist) for sublist in blocks]
-    for i in range(len(proj)):
+    for i in range(len(list(proj))):
         if proj[i] != [] and block_weights[i] > 0:
-            p = len(proj[i])/float(len(subset))
+            p = len(list(proj[i]))/float(len(subset))
             if p>0:
                 pe += - p * math.log(p) * block_weights[i]
     return pe
@@ -43,8 +44,8 @@ def cumulative_occurences( nym_count, blocks, block_weights, subset ):
     for i in range(len(subset)+1):
         cod.append(0)
     proj = [filter(lambda x: x in subset, sublist) for sublist in blocks]
-    for i in range(len(proj)):
-        for k in range(len(proj[i])+1):
+    for i in range(len(list(proj))):
+        for k in range(len(list(proj[i]))+1):
             cod[k] += 1
     return cod
 
@@ -76,7 +77,7 @@ def save_dataset( dataset_name, nyms, nym_proj_size, blocks ):
         else:
             fpin.write('%g\n' % block_weight)
     fpin.close()
-    print 'Dataset %s saved.' % dataset_name
+    print('Dataset %s saved.' % dataset_name)
     
 
 def read_dataset( dataset ):
@@ -102,13 +103,13 @@ def read_dataset( dataset ):
         blocks[i] = blocks[i].split()
         for j in range(len(blocks[i])):
             blocks[i][j] = int(blocks[i][j])
-    print 'Dataset %s read.\nThere are %d blocks of %d nyms' % ( dataset, len(blocks), len(nyms) )
+    print('Dataset %s read.\nThere are %d blocks of %d nyms' % ( dataset, len(blocks), len(nyms) ))
     return nyms, blocks, block_weights, nym_proj_size
 
 
 def prepare_text_all( text_name_all, text_filename, merge_lines ):
 
-    print 'Preparing text %s ..' % text_name_all
+    print('Preparing text %s ..' % text_name_all)
 
     fpin = codecs.open(text_filename, 'r', 'utf-8' )
     lines = fpin.read().splitlines()
@@ -191,7 +192,7 @@ def prepare_text_all( text_name_all, text_filename, merge_lines ):
 
 def prepare_text_chosen( min_proj_size, max_proj_size, text_name_all, text_name_chosen, text_filename, merge_lines ):
 
-    print 'Preparing text %s ..' % text_name_chosen
+    print('Preparing text %s ..' % text_name_chosen)
 
     ( nyms, blocks, block_weights, nym_proj_size ) = read_dataset( text_name_all )
 
@@ -253,10 +254,10 @@ def agglomerate_dataset(dataset, log_file):
     for i in range(len(block_weights)):
         if block_weights[i] != '':
             total_weight += block_weights[i]
-    if total_weight != 1:
-        print 'Total weight appears to be “%g” but is not exactly One.\nTo be handled nevertheless.' % total_weight
+    #if total_weight != 1:
+    #    print('Total weight appears to be “%g” but is not exactly One.\nTo be handled nevertheless.' % total_weight)
 
-    print 'Begin entropy agglomeration ..'
+    print('Begin entropy agglomeration ..')
 
     # begin with singleton clusters
     clusters = []
@@ -345,7 +346,7 @@ def agglomerate_dataset(dataset, log_file):
 
     log_file.close()
 
-    print 'Writing bifurcations ..'
+    print('Writing bifurcations ..')
     with codecs.open('bifurcations_'+dataset+'.csv', 'wb', 'utf-8') as f:
         writer = csv.writer(f)
         writer.writerows(bifurcations)
@@ -358,7 +359,7 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile ):
 
     ( nyms, blocks, block_weights, nym_proj_size ) = read_dataset( dataset )
 
-    print 'Reading bifurcations ..'
+    print('Reading bifurcations ..')
     with codecs.open(treefile, 'rb', 'utf-8') as f:
         reader = csv.reader(f)
         bifurcations = []
@@ -386,9 +387,9 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile ):
 
     fig = plt.figure(figsize=(4,len(nyms)*0.22))
     mpl.rc('lines', linewidth=3, color='r')
-    dendrogram(bifurcations,orientation='left',labels=nymshort,link_color_func=cfunc)
+    dendrogram(bifurcations,orientation='left',labels=nymshort,link_color_func=cfunc,leaf_font_size=10)
 
-    print 'Saving dendrogram for %s ..' % plot_title
+    print('Saving dendrogram for %s ..' % plot_title)
 
     plt.title('%s\n%d words in %d blocks' % (plot_title,len(nyms),len(blocks)))
     if overall_max_ent<0.06:
@@ -428,7 +429,7 @@ for text_name in text_names:
 for text_name in text_names:
 
     os.mkdir(text_name)
-    print 'Directory created: %s' % text_name
+    print('Directory created: %s' % text_name)
 
     text_filename = '%s.txt' % text_name
     text_name_all = '%s_all' % text_name
@@ -440,7 +441,7 @@ for text_name in text_names:
     outfiles0.append('blocks_%s.txt' % text_name_all)
     outfiles0.append('weights_%s.txt' % text_name_all)
     
-    print '---'
+    print('---')
 
     try:
             
@@ -479,7 +480,7 @@ for text_name in text_names:
             
             log_file = codecs.open('agglomerate_%s.log' % dataset, 'w', 'utf-8' )
 
-            print '---'
+            print('---')
         
             try:
                 agglomerate_dataset( dataset, log_file )
@@ -493,27 +494,35 @@ for text_name in text_names:
                 for outfile in outfiles:
                     os.rename(outfile,text_name+'/'+outfile)
 
-            except:
-                print '~ Exception! ~'
+            except Exception as e:
+                print(e)
+                for frame in traceback.extract_tb(sys.exc_info()[2]):
+                    fname,lineno,fn,text = frame
+                    print("Error in %s on line %d" % (fname, lineno))
+                print('~ Exception! ~')
                 log_file.close()
                 for outfile in outfiles:
                     if os.path.isfile(outfile):
-                        print 'Removing %s ..' % outfile 
+                        print('Removing %s ..' % outfile) 
                         os.remove(outfile)
-                print '~~~'
+                print('~~~')
                    
         for outfile in outfiles0:
             os.rename(outfile,text_name+'/'+outfile)
 
-        winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS)
+        #winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS)
 
-    except:
-        print '~ Exception! ~'
+    except Exception as e:
+        print(e)
+        for frame in traceback.extract_tb(sys.exc_info()[2]):
+            fname,lineno,fn,text = frame
+            print("Error in %s on line %d" % (fname, lineno))
+        print('~ Exception! ~')
         for outfile in outfiles0:
             if os.path.isfile(outfile):
-                print 'Removing %s ..' % outfile 
+                print('Removing %s ..' % outfile)
                 os.remove(outfile)
-        print '~~~'
+        print('~~~')
         raise
         
 
