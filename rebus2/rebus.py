@@ -1,7 +1,10 @@
 ﻿#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-# — — ———  REBUS: entropy agglomeration of words in a text  ——— — —  #
+# — —— ————  REBUS 2.0: entropy agglomeration of elements  ——— —— —  #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-# On this software implementation, please refer to:                  #
+# On this version of the software implementation, please refer to:   #
+# Fidaner, I. B. (2017) Generalized Entropy Agglomeration, arxiv.org #
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# On the previous version of the software implementation, refer to:  #
 # Fidaner, I. B. & Cemgil, A. T. (2014) Clustering Words by Projec-  #
 #     tion Entropy, submitted to NIPS 2014 Modern ML+NLP Workshop    #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
@@ -26,30 +29,41 @@ import matplotlib.pyplot as plt
 from scipy.cluster.hierarchy import linkage, dendrogram
 
 
-def projection_entropy( nym_count, blocks, block_weights, subset ):
-    assert sorted(list(set(subset))) == sorted(subset), 'This cluster is not a set: %r' % subset
+def projection_entropy( nym_count, blocks, block_weights, element_weights, subset, recurrence_base ):
+##    assert sorted(list(set(subset))) == sorted(subset), 'This cluster is not a set: %r' % subset
     pe = 0
-    proj = [filter(lambda x: x in subset, sublist) for sublist in blocks]
-    for i in range(len(proj)):
-        if proj[i] != [] and block_weights[i] > 0:
-            p = len(proj[i])/float(len(subset))
+    proj_indices = []    
+    for i in range(len(blocks)):
+        proj_indices.append([ind+1 for ind,val in enumerate(blocks[i]) if val in subset])
+    for i in range(len(blocks)):
+        if proj_indices[i] != [] and block_weights[i] > 0:
+            p = 0
+            for j in proj_indices[i]:
+                if element_weights == []:
+                    p += 1
+                else:
+                    p += element_weights[i][j-1]
+            p = p / ( float(len(subset)) * recurrence_base )
             if p>0:
                 pe += - p * math.log(p) * block_weights[i]
     return pe
 
-def cumulative_occurences( nym_count, blocks, block_weights, subset ):
-    assert sorted(list(set(subset))) == sorted(subset), 'This cluster is not a set: %r' % subset
+def cumulative_occurences( nym_count, blocks, subset ):
+##    assert sorted(list(set(subset))) == sorted(subset), 'This cluster is not a set: %r' % subset
     cod = []
     for i in range(len(subset)+1):
         cod.append(0)
     proj = [filter(lambda x: x in subset, sublist) for sublist in blocks]
     for i in range(len(proj)):
+        while len(cod) < len(proj[i])+1:
+            cod.append(0) # longer COD for repeated elements
         for k in range(len(proj[i])+1):
             cod[k] += 1
     return cod
 
 
-def save_dataset( dataset_name, nyms, nym_proj_size, blocks ):
+def save_dataset( dataset_name, nyms, nym_proj_size, blocks, block_weights, element_weights ):
+    assert len(blocks) == len(block_weights), 'Number of blocks %d, number of block weights %d!' % (len(blocks),len(block_weights))
     fpin = codecs.open('nyms_%s.txt' % dataset_name, 'w', 'utf-8' )
     for i in range(len(nyms)):
         fpin.write('%s\n' % nyms[i])
@@ -68,13 +82,19 @@ def save_dataset( dataset_name, nyms, nym_proj_size, blocks ):
             fpin.write('%d ' % elm)
         fpin.write('\n')
     fpin.close()
-    fpin = codecs.open('weights_%s.txt' % dataset_name, 'w', 'utf-8' )
-    block_weight = 1.0 / float( len(blocks) )
-    for block in blocks:
+    fpin = codecs.open('block_weights_%s.txt' % dataset_name, 'w', 'utf-8' )
+    sum_bw = sum(block_weights)
+    for ind,block in enumerate(blocks):
         if block == []:
             fpin.write('\n')
         else:
-            fpin.write('%g\n' % block_weight)
+            fpin.write('%g\n' % (block_weights[ind] / sum_bw))
+    fpin.close()
+    fpin = codecs.open('element_weights_%s.txt' % dataset_name, 'w', 'utf-8' )
+    for element_weight_list in element_weights:
+        for element_weight in element_weight_list:
+            fpin.write('%g ' % element_weight)
+        fpin.write('\n')
     fpin.close()
     print 'Dataset %s saved.' % dataset_name
     
@@ -89,7 +109,7 @@ def read_dataset( dataset ):
     nym_proj_size = {}
     for i in range(len(proj_sizes)):
         nym_proj_size[nyms[i]] = int(proj_sizes[i])
-    fpin = codecs.open('weights_%s.txt' % dataset, 'r', 'utf-8' )
+    fpin = codecs.open('block_weights_%s.txt' % dataset, 'r', 'utf-8' )
     block_weights = fpin.read().splitlines()
     fpin.close()
     for i in range(len(block_weights)):
@@ -102,11 +122,19 @@ def read_dataset( dataset ):
         blocks[i] = blocks[i].split()
         for j in range(len(blocks[i])):
             blocks[i][j] = int(blocks[i][j])
+    fpin = codecs.open('element_weights_%s.txt' % dataset, 'r', 'utf-8' )
+    element_weights = fpin.read().splitlines()
+    fpin.close()
+    for i in range(len(element_weights)):
+        if element_weights[i] != '':
+            element_weights[i] = element_weights[i].split()
+        for j in range(len(element_weights[i])):
+            element_weights[i][j] = float(element_weights[i][j])
     print 'Dataset %s read.\nThere are %d blocks of %d nyms' % ( dataset, len(blocks), len(nyms) )
-    return nyms, blocks, block_weights, nym_proj_size
+    return nyms, blocks, block_weights, element_weights, nym_proj_size
 
 
-def prepare_text_all( text_name_all, text_filename, merge_lines ):
+def prepare_text_all( text_name_all, text_filename, block_weights_filename, element_weights_filename, merge_lines ):
 
     print 'Preparing text %s ..' % text_name_all
 
@@ -115,17 +143,22 @@ def prepare_text_all( text_name_all, text_filename, merge_lines ):
     fpin.close()
     
     for i in range(len(lines)):
-        lines[i]=lines[i].lower()
+        # CONVERT LETTERS TO LOWERCASE
+##        lines[i]=lines[i].lower()
+        # CONVERT NON-STANDARD DASHES TO SPACES
         lines[i]=lines[i].replace(u"–",u" ")
         lines[i]=lines[i].replace(u"—",u" ")
+        # CONVERT SINGLE QUOTATIONS TO A STANDARD MARK
         lines[i]=lines[i].replace(u"`",u"'")
         lines[i]=lines[i].replace(u"´",u"'")
         lines[i]=lines[i].replace(u"’",u"'")
         lines[i]=lines[i].replace(u"‘",u"'")
+        # split line into words
         lines[i]=lines[i].split()
     i=0
     while i<len(lines):
         if merge_lines==1 and len(lines[i])>0 and i<len(lines)-1 and len(lines[i+1])>0:
+            # MERGE THIS LINE WITH THE PREVIOUS ONE
             if lines[i][len(lines[i])-1][-1:]=='-':
                 lines[i][len(lines[i])-1] = lines[i][len(lines[i])-1][:-1] + lines[i+1][0]
                 lines[i] = lines[i] + lines[i+1][1:]
@@ -134,13 +167,17 @@ def prepare_text_all( text_name_all, text_filename, merge_lines ):
             del lines[i+1]
             i-=1
 
+        # disregard empty lines
         if len(lines[i])==0:
             del lines[i]
             i-=1
         for j in range(len(lines[i])):
             j2 = 0
             while j2<len(lines[i][j]):
-                if not (lines[i][j][j2].isalpha() or lines[i][j][j2]==u"'" or lines[i][j][j2]==u"-"):
+                # ELIMINATE NO CHARS #
+                if 0:
+                # ELIMINATE NON-ALPHANUMERIC+ CHARS # if not (lines[i][j][j2].isalnum() or lines[i][j][j2]==u"." or lines[i][j][j2]==u"'" or lines[i][j][j2]==u"-" or lines[i][j][j2]==u"_"):
+                # ELIMINATE NON-ALPHA+ CHARS # if not (lines[i][j][j2].isalpha() or lines[i][j][j2]==u"'" or lines[i][j][j2]==u"-" or lines[i][j][j2]==u"_"):
                     newstr = ''
                     if j2>0:
                         newstr = lines[i][j][:j2] + newstr
@@ -153,6 +190,7 @@ def prepare_text_all( text_name_all, text_filename, merge_lines ):
                 lines[i][j]=''
             else:
                 if lines[i][j]!='':
+                    # eliminate quotation marks from beginning & end
                     while lines[i][j][0]==u"'":
                         lines[i][j] = lines[i][j][1:]
                     while lines[i][j][-1]==u"'":
@@ -174,17 +212,42 @@ def prepare_text_all( text_name_all, text_filename, merge_lines ):
                     nym_id[lines[i][j]] = nym_count
                     nyms.append(lines[i][j])
                     block.append(nym_count)
-        blocks.append(block)
+        if block != []:
+            blocks.append(block)
 
     nym_proj_size = {}
     for i in range(len(nyms)):
         nym_proj_size[nyms[i]]=0
     for i in range(len(blocks)):
-        blocks[i] = list(set(blocks[i]))
+        # ELIMINATE DUPLICATE ELEMENTS IN BLOCKS # blocks[i] = list(set(blocks[i]))
         for j in range(len(blocks[i])):
             nym_proj_size[nyms[blocks[i][j]-1]] += 1
 
-    save_dataset( text_name_all, nyms, nym_proj_size, blocks )
+    if os.path.exists(block_weights_filename)==1:
+        fpin = codecs.open(block_weights_filename, 'r', 'utf-8' )
+        block_weights = fpin.read().splitlines()
+        fpin.close()
+        for i in range(len(block_weights)):
+            if block_weights[i] != '':
+                block_weights[i] = float(block_weights[i])
+    else:
+        block_weights = []
+        for block in blocks:
+            block_weights.append( float(1.0 / float( len(blocks) )) )
+
+    if os.path.exists(element_weights_filename)==1:
+        fpin = codecs.open(element_weights_filename, 'r', 'utf-8' )
+        element_weights = fpin.read().splitlines()
+        fpin.close()
+        for i in range(len(element_weights)):
+            if element_weights[i] != '':
+                element_weights[i] = element_weights[i].split()
+            for j in range(len(element_weights[i])):
+                element_weights[i][j] = float(element_weights[i][j])
+    else:
+        element_weights = []        
+
+    save_dataset( text_name_all, nyms, nym_proj_size, blocks, block_weights, element_weights )
 
     return len(blocks)
 
@@ -193,8 +256,7 @@ def prepare_text_chosen( min_proj_size, max_proj_size, text_name_all, text_name_
 
     print 'Preparing text %s ..' % text_name_chosen
 
-    ( nyms, blocks, block_weights, nym_proj_size ) = read_dataset( text_name_all )
-
+    ( nyms, blocks, block_weights, element_weights, nym_proj_size ) = read_dataset( text_name_all )
 
     id_map = []
     chosen_nym_count = 0
@@ -219,11 +281,14 @@ def prepare_text_chosen( min_proj_size, max_proj_size, text_name_all, text_name_
             j+=1
         if len(blocks[i])==0:
             del blocks[i]
+            del block_weights[i]
+            if element_weights != []:
+                del element_weights[i]
             i-=1
         i+=1    
-            
 
-    save_dataset( text_name_chosen, chosen_nyms, nym_proj_size,blocks)
+            
+    save_dataset( text_name_chosen, chosen_nyms, nym_proj_size, blocks, block_weights, element_weights )
 
 
 	
@@ -243,10 +308,10 @@ def log_cluster_pair( log_file, min_pe, clusters, nyms, cod ):
     log_file.flush()
     
 
-def agglomerate_dataset(dataset, log_file):
+def agglomerate_dataset(dataset, log_file, recurrence_base):
 
     # read the nyms and blocks of the dataset
-    ( nyms, blocks, block_weights, nym_proj_size ) = read_dataset( dataset )
+    ( nyms, blocks, block_weights, element_weights, nym_proj_size ) = read_dataset( dataset )
 
     # compute total weight for != 1
     total_weight=0
@@ -272,22 +337,28 @@ def agglomerate_dataset(dataset, log_file):
     min_pe_cache = []
     min_pe_cache.append( [float('inf'), 0, 0 ] )
 
+    # TODO: Show percentage!!
+
     # compute the initial matrix and cache the cluster pairs with minimum projection entropy
     for i in range(len(nyms)):
+        if i % 1000 == 0:
+            print i
         entropies = []
-        for j in range(i):
-            pe = projection_entropy( len(nyms), blocks, block_weights, clusters[j] + clusters[i] )
+        for j in range(i): #TODO: only compute projection entropies lower than a threshold???
+            pe = projection_entropy( len(nyms), blocks, block_weights, element_weights, clusters[j] + clusters[i], recurrence_base )
             entropies.append( pe / float(total_weight) )
             if entropies[j] < min_pe_cache[-1][0]:
                 min_pe_cache.append( [entropies[j], j, i] )
                 #log_cluster_pair( log_file, min_pe_cache[-1], clusters, nyms)
         merge_entropies.append( entropies )
 
+    print 'Initial matrix ready ..'
+
     # merge the best cluster pair and update the matrix
     # continue until only one cluster remains
     while len(merge_entropies) > 1:
 
-        cod = cumulative_occurences( len(nyms), blocks, block_weights, clusters[min_pe_cache[-1][1]] + clusters[min_pe_cache[-1][2]] )
+        cod = cumulative_occurences( len(nyms), blocks, clusters[min_pe_cache[-1][1]] + clusters[min_pe_cache[-1][2]] )
 
         # record the bifurcation on the dendrogram
         bifurcation = [ bfc_inds[min_pe_cache[-1][1]], bfc_inds[min_pe_cache[-1][2]] ]
@@ -321,11 +392,11 @@ def agglomerate_dataset(dataset, log_file):
         # recompute the first cluster on the matrix
         j = min_pe_cache[-1][1]
         for i in range(j+1,len(merge_entropies)):
-            pe = projection_entropy( len(nyms), blocks, block_weights, clusters[j] + clusters[i] )
+            pe = projection_entropy( len(nyms), blocks, block_weights, element_weights, clusters[j] + clusters[i], recurrence_base )
             merge_entropies[i][j] = pe / float(total_weight)
         i = min_pe_cache[-1][1]
         for j in range(i):
-            pe = projection_entropy( len(nyms), blocks, block_weights, clusters[j] + clusters[i] )
+            pe = projection_entropy( len(nyms), blocks, block_weights, element_weights, clusters[j] + clusters[i], recurrence_base )
             merge_entropies[i][j] = pe / float(total_weight)
 
         # delete the cache entry for the merged pair
@@ -356,7 +427,7 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile ):
     def cfunc(k):
         return '#dd0000'
 
-    ( nyms, blocks, block_weights, nym_proj_size ) = read_dataset( dataset )
+    ( nyms, blocks, block_weights, element_weights, nym_proj_size ) = read_dataset( dataset )
 
     print 'Reading bifurcations ..'
     with codecs.open(treefile, 'rb', 'utf-8') as f:
@@ -370,22 +441,30 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile ):
     for i in range(len(bifurcations)):
         for j in range(len(bifurcations[i])):
             bifurcations[i][j] = float(bifurcations[i][j])
+        # REPLACE NEGATIVE VALUES!!!!!        
+        if bifurcations[i][2] < 0:
+            print 'Negative entropy %g is being zeroed...' % bifurcations[i][2]
+            bifurcations[i][2] = 0
         if bifurcations[i][2] < overall_min_ent:
             overall_min_ent = bifurcations[i][2]
         if bifurcations[i][2] > overall_max_ent:
-            overall_max_ent = bifurcations[i][2]
+            overall_max_ent = bifurcations[i][2]        
 
-    assert overall_min_ent>=0, 'There are negative projection entropies! Should not happen unless blocks are multisets. Are they?'
+##    assert overall_min_ent>=0, 'There are negative projection entropies! Should not happen unless blocks are multisets. Are they?'
     
     nymshort = []
     for nym in nyms:
-        if len(nym) < 25:
+        nym = nym.replace('_',' ')
+        if len(nym) < 35:
             nymshort.append(nym)
         else:
-            nymshort.append(nym[1:23]+'..')
+            nymshort.append(nym[1:33]+'..')
 
-    fig = plt.figure(figsize=(4,len(nyms)*0.22))
+    fig = plt.figure(figsize=(5,(len(nyms)+5)*0.22))
     mpl.rc('lines', linewidth=3, color='r')
+
+    print 'Producing dendrogram ..'
+
     dendrogram(bifurcations,orientation='left',labels=nymshort,link_color_func=cfunc)
 
     print 'Saving dendrogram for %s ..' % plot_title
@@ -411,15 +490,44 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile ):
 #    REBUS main code    #
 #~~~~~~~~~~~~~~~~~~~~~~~#
 
-text_names = [ 'ulysses' ]
 # put several text names to process several inputs in sequence
+
+
+# The following alternative settings are for running the examples on this page:
+# https://fidaner.wordpress.com/2017/05/18/entropy-as-a-measure-of-irrelevance/
+
+text_names = [ 'iris10-15-0.1' ]
+min_proj_sizes = [1]
+max_proj_sizes = [inf]
+recurrence_base = 1
+
+##text_names = [ 'myco-p' ]
+##min_proj_sizes = [5]
+##max_proj_sizes = [inf]
+##recurrence_base = 30
+
+##text_names = [ 'myco-f' ]
+##min_proj_sizes = [3]
+##max_proj_sizes = [inf]
+##recurrence_base = 10
+
+##text_names = [ 'dino' ]
+##min_proj_sizes = [1]
+##max_proj_sizes = [inf]
+##recurrence_base = 1
+
+##text_names = [ 'music' ]
+##min_proj_sizes = [20000]
+##max_proj_sizes = [inf]
+##recurrence_base = 40
+
+
 
 merge_lines = 0
 # 0: put each line in a separate paragraph (separated by single newlines)
 # 1: put consequent lines in the same paragraph (separated by double newlines)
 
-min_proj_sizes = [10, 11, 12, 15, 20, 30, 40, 60,  150]
-max_proj_sizes = [10, 11, 13, 17, 25, 39, 59, 149, inf]
+
 # for each of the ranges, minimum and maximum number of paragraphs that the words are allowed to occur in
 
 for text_name in text_names:
@@ -427,10 +535,14 @@ for text_name in text_names:
 
 for text_name in text_names:
 
+    assert os.path.exists(text_name+'.txt')==1, 'Where is my input? (%s.txt ?)' % text_name
+    
     os.mkdir(text_name)
     print 'Directory created: %s' % text_name
 
     text_filename = '%s.txt' % text_name
+    block_weights_filename = '%s-block-weights.txt' % text_name
+    element_weights_filename = '%s-element-weights.txt' % text_name
     text_name_all = '%s_all' % text_name
     
     outfiles0=[]
@@ -438,17 +550,14 @@ for text_name in text_names:
     outfiles0.append('nym_proj_size_%s.csv' % text_name_all)
     outfiles0.append('proj_sizes_%s.txt' % text_name_all)
     outfiles0.append('blocks_%s.txt' % text_name_all)
-    outfiles0.append('weights_%s.txt' % text_name_all)
+    outfiles0.append('block_weights_%s.txt' % text_name_all)
+    outfiles0.append('element_weights_%s.txt' % text_name_all)
     
     print '---'
 
     try:
             
-        block_count = prepare_text_all(text_name_all,text_filename,merge_lines)
-
-        for i in range(len(max_proj_sizes)):
-            if max_proj_sizes[i] > block_count:
-                max_proj_sizes[i] = block_count
+        block_count = prepare_text_all(text_name_all,text_filename,block_weights_filename,element_weights_filename,merge_lines)
 
         for i in range(len(max_proj_sizes)):
             min_proj_size = min_proj_sizes[i]
@@ -460,7 +569,7 @@ for text_name in text_names:
 
             prepare_text_chosen(min_proj_size,max_proj_size,text_name_all,text_name_chosen,text_filename,merge_lines)
 
-            plot_title = 'Projection sizes %d-%d' % (min_proj_size,max_proj_size)
+            plot_title = 'Projection sizes %g-%g' % (min_proj_size,max_proj_size)
 
             dataset = text_name_chosen
 
@@ -470,7 +579,8 @@ for text_name in text_names:
             outfiles.append('nym_proj_size_%s.csv' % dataset)
             outfiles.append('proj_sizes_%s.txt' % dataset)
             outfiles.append('blocks_%s.txt' % dataset)
-            outfiles.append('weights_%s.txt' % dataset)
+            outfiles.append('block_weights_%s.txt' % dataset)
+            outfiles.append('element_weights_%s.txt' % dataset)
             outfiles.append('ea_%s.pdf' % dataset)
             outfiles.append('ea_%s.png' % dataset)
             outfiles.append('ea_%s.eps' % dataset)
@@ -482,7 +592,7 @@ for text_name in text_names:
             print '---'
         
             try:
-                agglomerate_dataset( dataset, log_file )
+                agglomerate_dataset( dataset, log_file, recurrence_base )
 
                 dataset = text_name_chosen
                 outfile = 'ea_'+dataset
@@ -496,10 +606,11 @@ for text_name in text_names:
             except:
                 print '~ Exception! ~'
                 log_file.close()
-                for outfile in outfiles:
-                    if os.path.isfile(outfile):
-                        print 'Removing %s ..' % outfile 
-                        os.remove(outfile)
+                print "Error:", sys.exc_info()
+##                for outfile in outfiles:
+##                    if os.path.isfile(outfile):
+##                        print 'Removing %s ..' % outfile 
+##                        os.remove(outfile)
                 print '~~~'
                    
         for outfile in outfiles0:
@@ -509,10 +620,11 @@ for text_name in text_names:
 
     except:
         print '~ Exception! ~'
-        for outfile in outfiles0:
-            if os.path.isfile(outfile):
-                print 'Removing %s ..' % outfile 
-                os.remove(outfile)
+        print "Error:", sys.exc_info()
+##        for outfile in outfiles0:
+##            if os.path.isfile(outfile):
+##                print 'Removing %s ..' % outfile 
+##                os.remove(outfile)
         print '~~~'
         raise
         
