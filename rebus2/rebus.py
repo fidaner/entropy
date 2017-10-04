@@ -46,6 +46,17 @@ def projection_entropy( nym_count, blocks, block_weights, element_weights, subse
             p = p / ( float(len(subset)) * recurrence_base )
             if p>0:
                 pe += - p * math.log(p) * block_weights[i]
+
+##    if pe<0:
+##        alt_pe = pe
+##        addition = 0
+##        while alt_pe<0:
+##            addition = addition + 1
+##            r = recurrence_base + addition
+##            alt_pe = projection_entropy( nym_count, blocks, block_weights, element_weights, subset, r )
+##        print('r = %g would make the entropy positive' % r)
+##        pause
+
     return pe
 
 def cumulative_occurences( nym_count, blocks, subset ):
@@ -74,7 +85,7 @@ def save_dataset( dataset_name, nyms, nym_proj_size, blocks, block_weights, elem
     fpin.close()
     fpin = codecs.open('proj_sizes_%s.txt' % dataset_name, 'w', 'utf-8' )
     for i in range(len(nyms)):
-        fpin.write('%d\n' % nym_proj_size[ nyms[i] ])
+        fpin.write('%g\n' % nym_proj_size[ nyms[i] ])
     fpin.close()
     fpin = codecs.open('blocks_%s.txt' % dataset_name, 'w', 'utf-8' )
     for block in blocks:
@@ -108,7 +119,7 @@ def read_dataset( dataset ):
     fpin.close()
     nym_proj_size = {}
     for i in range(len(proj_sizes)):
-        nym_proj_size[nyms[i]] = int(proj_sizes[i])
+        nym_proj_size[nyms[i]] = float(proj_sizes[i])
     fpin = codecs.open('block_weights_%s.txt' % dataset, 'r', 'utf-8' )
     block_weights = fpin.read().splitlines()
     fpin.close()
@@ -144,7 +155,7 @@ def prepare_text_all( text_name_all, text_filename, block_weights_filename, elem
     
     for i in range(len(lines)):
         # CONVERT LETTERS TO LOWERCASE
-##        lines[i]=lines[i].lower()
+        #lines[i]=lines[i].lower()
         # CONVERT NON-STANDARD DASHES TO SPACES
         lines[i]=lines[i].replace(u"–",u" ")
         lines[i]=lines[i].replace(u"—",u" ")
@@ -156,6 +167,8 @@ def prepare_text_all( text_name_all, text_filename, block_weights_filename, elem
         # split line into words
         lines[i]=lines[i].split()
     i=0
+
+    print 'preparing lines...'
     while i<len(lines):
         if merge_lines==1 and len(lines[i])>0 and i<len(lines)-1 and len(lines[i+1])>0:
             # MERGE THIS LINE WITH THE PREVIOUS ONE
@@ -174,9 +187,10 @@ def prepare_text_all( text_name_all, text_filename, block_weights_filename, elem
         for j in range(len(lines[i])):
             j2 = 0
             while j2<len(lines[i][j]):
-                # ELIMINATE NO CHARS #
-                if 0:
-                # ELIMINATE NON-ALPHANUMERIC+ CHARS # if not (lines[i][j][j2].isalnum() or lines[i][j][j2]==u"." or lines[i][j][j2]==u"'" or lines[i][j][j2]==u"-" or lines[i][j][j2]==u"_"):
+                # ELIMINATE NO CHARS # if 0:
+                # ELIMINATE NON-ALPHANUMERIC+++ CHARS # if not (lines[i][j][j2].isalnum() or lines[i][j][j2]==u"." or lines[i][j][j2]==u"'" or lines[i][j][j2]==u"-" or lines[i][j][j2]==u"_" or lines[i][j][j2]==u"#" or lines[i][j][j2]==u"@" or lines[i][j][j2]==u":" or lines[i][j][j2]==u"/"):
+                # ELIMINATE NON-ALPHANUMERIC+ CHARS #
+                if not (lines[i][j][j2].isalnum() or lines[i][j][j2]==u"." or lines[i][j][j2]==u"'" or lines[i][j][j2]==u"-" or lines[i][j][j2]==u"_"):
                 # ELIMINATE NON-ALPHA+ CHARS # if not (lines[i][j][j2].isalpha() or lines[i][j][j2]==u"'" or lines[i][j][j2]==u"-" or lines[i][j][j2]==u"_"):
                     newstr = ''
                     if j2>0:
@@ -197,6 +211,8 @@ def prepare_text_all( text_name_all, text_filename, block_weights_filename, elem
                         lines[i][j] = lines[i][j][0:-1]
         i+=1
         
+    print 'preparing blocks...'
+
     blocks = []
     nym_id = {}
     nyms = []
@@ -215,13 +231,6 @@ def prepare_text_all( text_name_all, text_filename, block_weights_filename, elem
         if block != []:
             blocks.append(block)
 
-    nym_proj_size = {}
-    for i in range(len(nyms)):
-        nym_proj_size[nyms[i]]=0
-    for i in range(len(blocks)):
-        # ELIMINATE DUPLICATE ELEMENTS IN BLOCKS # blocks[i] = list(set(blocks[i]))
-        for j in range(len(blocks[i])):
-            nym_proj_size[nyms[blocks[i][j]-1]] += 1
 
     if os.path.exists(block_weights_filename)==1:
         fpin = codecs.open(block_weights_filename, 'r', 'utf-8' )
@@ -246,6 +255,17 @@ def prepare_text_all( text_name_all, text_filename, block_weights_filename, elem
                 element_weights[i][j] = float(element_weights[i][j])
     else:
         element_weights = []        
+
+    nym_proj_size = {}
+    for i in range(len(nyms)):
+        nym_proj_size[nyms[i]]=0
+    for i in range(len(blocks)):
+        # ELIMINATE DUPLICATE ELEMENTS IN BLOCKS # blocks[i] = list(set(blocks[i]))
+        for j in range(len(blocks[i])):
+            if element_weights == []:
+                nym_proj_size[nyms[blocks[i][j]-1]] += 1
+            else:
+                nym_proj_size[nyms[blocks[i][j]-1]] += element_weights[i][j]
 
     save_dataset( text_name_all, nyms, nym_proj_size, blocks, block_weights, element_weights )
 
@@ -294,10 +314,11 @@ def prepare_text_chosen( min_proj_size, max_proj_size, text_name_all, text_name_
 	
 def log_cluster_pair( log_file, min_pe, clusters, nyms, cod ):
     #log_file.write('%5d,%5d : ( ' % (min_pe[1], min_pe[2]) )
-    log_file.write('COD: [ ')
-    for i in range(len(cod)):
-        log_file.write('%5d ' % cod[i])
-    log_file.write('] : ( ')
+    #log_file.write('COD: [ ')
+    #for i in range(len(cod)):
+    #    log_file.write('%5d ' % cod[i])
+    #log_file.write('] : ')
+    log_file.write('( ')
     for i in range(len(clusters[min_pe[1]])):
         log_file.write('%s ' % nyms[clusters[min_pe[1]][i]-1])
     log_file.write(')+( ')
@@ -337,12 +358,12 @@ def agglomerate_dataset(dataset, log_file, recurrence_base):
     min_pe_cache = []
     min_pe_cache.append( [float('inf'), 0, 0 ] )
 
-    # TODO: Show percentage!!
-
     # compute the initial matrix and cache the cluster pairs with minimum projection entropy
+    next_percentage = 0.10
     for i in range(len(nyms)):
-        if i % 1000 == 0:
-            print i
+        if (i-1)/float(len(nyms)) < next_percentage and next_percentage <= i/float(len(nyms)):
+            print next_percentage*100, 'percent'
+            next_percentage = next_percentage + 0.10
         entropies = []
         for j in range(i): #TODO: only compute projection entropies lower than a threshold???
             pe = projection_entropy( len(nyms), blocks, block_weights, element_weights, clusters[j] + clusters[i], recurrence_base )
@@ -441,42 +462,54 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile ):
     for i in range(len(bifurcations)):
         for j in range(len(bifurcations[i])):
             bifurcations[i][j] = float(bifurcations[i][j])
-        # REPLACE NEGATIVE VALUES!!!!!        
-        if bifurcations[i][2] < 0:
-            print 'Negative entropy %g is being zeroed...' % bifurcations[i][2]
-            bifurcations[i][2] = 0
         if bifurcations[i][2] < overall_min_ent:
             overall_min_ent = bifurcations[i][2]
         if bifurcations[i][2] > overall_max_ent:
             overall_max_ent = bifurcations[i][2]        
+
+    if overall_min_ent > 0.01:
+        overall_min_ent = 0.01
+
+    if overall_min_ent < 0:
+        ent_offset = -overall_min_ent
+        for i in range(len(bifurcations)):
+            for j in range(len(bifurcations[i])):
+                bifurcations[i][j] = ent_offset + bifurcations[i][j]
 
 ##    assert overall_min_ent>=0, 'There are negative projection entropies! Should not happen unless blocks are multisets. Are they?'
     
     nymshort = []
     for nym in nyms:
         nym = nym.replace('_',' ')
-        if len(nym) < 35:
-            nymshort.append(nym)
-        else:
-            nymshort.append(nym[1:33]+'..')
+##        if len(nym) < 35:
+        nymshort.append(nym)
+##        else:
+##            nymshort.append(nym[0:33]+'..')
 
-    fig = plt.figure(figsize=(5,(len(nyms)+5)*0.22))
+    fig = plt.figure(figsize=(7,(len(nyms)+5)*0.22))
     mpl.rc('lines', linewidth=3, color='r')
 
     print 'Producing dendrogram ..'
 
     dendrogram(bifurcations,orientation='left',labels=nymshort,link_color_func=cfunc)
 
+    y1,y2 = plt.ylim()
+    plt.plot([ent_offset, ent_offset], [y1, y2], '--', color="black", linewidth=1);
+
     print 'Saving dendrogram for %s ..' % plot_title
 
-    plt.title('%s\n%d words in %d blocks' % (plot_title,len(nyms),len(blocks)))
-    if overall_max_ent<0.06:
-        plt.xticks(np.arange(0, overall_max_ent+0.01, 0.01))
+##    plt.title('%s\n%d words in %d blocks' % (plot_title,len(nyms),len(blocks)))
+    if overall_max_ent-overall_min_ent<0.06:
+        plt.xticks(np.arange(ent_offset + 0, ent_offset + overall_max_ent+0.01, 0.01), np.arange(0, overall_max_ent+0.01, 0.01))
     else:
-        if overall_max_ent<0.10:
-            plt.xticks(np.arange(0, overall_max_ent+0.01, 0.02))
+        if overall_max_ent-overall_min_ent<0.10:
+            plt.xticks(np.arange(ent_offset + 0, ent_offset + overall_max_ent+0.01, 0.02), np.arange(0, overall_max_ent+0.01, 0.02))
         else:
-            plt.xticks(np.arange(0, overall_max_ent+0.01, 0.05))
+            if overall_max_ent-overall_min_ent<0.30:
+                plt.xticks(np.arange(ent_offset + 0, ent_offset + overall_max_ent+0.01, 0.05), np.arange(0, overall_max_ent+0.01, 0.05))
+            else:
+                plt.xticks(np.arange(ent_offset + 0, ent_offset + overall_max_ent+0.01, 0.1), np.arange(0, overall_max_ent+0.01, 0.1))
+                
     
     fig.tight_layout()
     fig.savefig(outfile+'.png')
@@ -518,9 +551,18 @@ recurrence_base = 1
 
 ##text_names = [ 'music' ]
 ##min_proj_sizes = [20000]
-##max_proj_sizes = [inf]
+##max_proj_sizes = [ inf]
 ##recurrence_base = 40
 
+##text_names = [ 'tweets' ]
+##min_proj_sizes = [3000,2000,1000]
+##max_proj_sizes = [ inf, inf, inf]
+##recurrence_base = 1
+
+##text_names = [ 'example' ]
+##min_proj_sizes = [1]
+##max_proj_sizes = [inf]
+##recurrence_base = 1
 
 
 merge_lines = 0
