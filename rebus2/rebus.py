@@ -473,8 +473,7 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile ):
     if overall_min_ent < 0:
         ent_offset = -overall_min_ent
         for i in range(len(bifurcations)):
-            for j in range(len(bifurcations[i])):
-                bifurcations[i][j] = ent_offset + bifurcations[i][j]
+            bifurcations[i][2] = ent_offset + bifurcations[i][2]
 
 ##    assert overall_min_ent>=0, 'There are negative projection entropies! Should not happen unless blocks are multisets. Are they?'
     
