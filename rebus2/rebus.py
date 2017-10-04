@@ -470,6 +470,7 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile ):
     if overall_min_ent > 0.01:
         overall_min_ent = 0.01
 
+    ent_offset = 0
     if overall_min_ent < 0:
         ent_offset = -overall_min_ent
         for i in range(len(bifurcations)):
