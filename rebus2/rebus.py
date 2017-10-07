@@ -145,7 +145,7 @@ def read_dataset( dataset ):
     return nyms, blocks, block_weights, element_weights, nym_proj_size
 
 
-def prepare_text_all( text_name_all, text_filename, block_weights_filename, element_weights_filename, merge_lines ):
+def prepare_text_all( text_name_all, text_filename, block_weights_filename, element_weights_filename, merge_lines, element_weight_power ):
 
     print 'Preparing text %s ..' % text_name_all
 
@@ -255,6 +255,26 @@ def prepare_text_all( text_name_all, text_filename, block_weights_filename, elem
                 element_weights[i][j] = float(element_weights[i][j])
     else:
         element_weights = []        
+        for i in range(len(blocks)):
+            element_weight = []
+            for j in range(len(blocks[i])):
+                element_weight.append(1)
+            element_weights.append(element_weight)
+
+    for i in range(len(blocks)):
+        j = 1
+        while j < len(blocks[i]):
+            if blocks[i][j] in blocks[i][0:j-1]:
+                ind = blocks[i][0:j-1].index(blocks[i][j])
+                element_weights[i][ind] += element_weights[i][j]
+                del element_weights[i][j]
+                del blocks[i][j]
+                j -= 1
+            j += 1
+
+    for i in range(len(element_weights)):
+        for j in range(len(element_weights[i])):
+            element_weights[i][j] = element_weights[i][j]**element_weight_power
 
     nym_proj_size = {}
     for i in range(len(nyms)):
@@ -529,6 +549,8 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile ):
 # The following alternative settings are for running the examples on this page:
 # https://fidaner.wordpress.com/2017/05/18/entropy-as-a-measure-of-irrelevance/
 
+element_weight_power = 1
+
 text_names = [ 'iris10-15-0.1' ]
 min_proj_sizes = [1]
 max_proj_sizes = [inf]
@@ -564,7 +586,6 @@ recurrence_base = 1
 ##max_proj_sizes = [inf]
 ##recurrence_base = 1
 
-
 merge_lines = 0
 # 0: put each line in a separate paragraph (separated by single newlines)
 # 1: put consequent lines in the same paragraph (separated by double newlines)
@@ -599,7 +620,7 @@ for text_name in text_names:
 
     try:
             
-        block_count = prepare_text_all(text_name_all,text_filename,block_weights_filename,element_weights_filename,merge_lines)
+        block_count = prepare_text_all(text_name_all,text_filename,block_weights_filename,element_weights_filename,merge_lines,element_weight_power)
 
         for i in range(len(max_proj_sizes)):
             min_proj_size = min_proj_sizes[i]
