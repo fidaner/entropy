@@ -22,7 +22,7 @@ for ind_op, overlap_param1 in enumerate(overlap_params1):
             for idx_fl, feature_label in enumerate(feature_labels):
                 # assign neighborhood coefficients for 1 decimal digits
                 for neighborhood in range(-overlap_param1,1+overlap_param1):
-                    feature_val = round(float(row[idx_fl]),1)+neighborhood/division_parameter
+                    feature_val = round(float(row[idx_fl]),1)+neighborhood/float(division_parameter)
                     feature = feature_label + (":%.1f" % feature_val)
                     coef1 = (coef1_max - coef1_cut * abs(neighborhood))**coefficient_power;
                     if iris_for_features.has_key(feature) == False:
