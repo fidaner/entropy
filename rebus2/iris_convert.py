@@ -4,8 +4,8 @@ import sys
 feature_labels = ['A', 'B', 'C', 'D']
 
 division_parameter = 10
-overlap_params1 = [15]
-coefficient_power = 0.1
+overlap_params1 = [5]
+coefficient_power = 3
 
 for ind_op, overlap_param1 in enumerate(overlap_params1):
     iris_name = {}
@@ -28,9 +28,8 @@ for ind_op, overlap_param1 in enumerate(overlap_params1):
                     if iris_for_features.has_key(feature) == False:
                         iris_for_features[feature] = []
                         coefficient_for_features[feature] = []
-                    if iris_for_features[feature].count(idx)==0: ## ?????
-                        iris_for_features[feature].append(idx+1)
-                        coefficient_for_features[feature].append(coef1)                        
+                    iris_for_features[feature].append(idx+1)
+                    coefficient_for_features[feature].append(coef1)
 
                 
     print 'read.'

@@ -463,7 +463,7 @@ def agglomerate_dataset(dataset, log_file, recurrence_base):
         writer.writerows(bifurcations)
 
 
-def draw_dendrogram( plot_title, treefile, dataset, outfile ):
+def draw_dendrogram( plot_title, treefile, dataset, outfile, figwidth ):
 
     def cfunc(k):
         return '#dd0000'
@@ -499,14 +499,17 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile ):
 ##    assert overall_min_ent>=0, 'There are negative projection entropies! Should not happen unless blocks are multisets. Are they?'
     
     nymshort = []
+    nym_longest = 0
     for nym in nyms:
         nym = nym.replace('_',' ')
 ##        if len(nym) < 35:
         nymshort.append(nym)
 ##        else:
 ##            nymshort.append(nym[0:33]+'..')
+        if nym_longest < len(nym):
+            nym_longest = len(nym)
 
-    fig = plt.figure(figsize=(7,(len(nyms)+5)*0.22))
+    fig = plt.figure(figsize=(nym_longest*0.088+figwidth,(len(nyms)+5)*0.22))
     mpl.rc('lines', linewidth=3, color='r')
 
     print 'Producing dendrogram ..'
@@ -551,7 +554,9 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile ):
 
 element_weight_power = 1
 
-text_names = [ 'iris10-15-0.1' ]
+figwidth = 3
+
+text_names = [ 'iris10-5-3' ]
 min_proj_sizes = [1]
 max_proj_sizes = [inf]
 recurrence_base = 1
@@ -661,7 +666,7 @@ for text_name in text_names:
                 outfile = 'ea_'+dataset
                 treefile = 'bifurcations_'+dataset+'.csv'
 
-                draw_dendrogram( plot_title, treefile, dataset, outfile )
+                draw_dendrogram( plot_title, treefile, dataset, outfile, figwidth )
 
                 for outfile in outfiles:
                     os.rename(outfile,text_name+'/'+outfile)
