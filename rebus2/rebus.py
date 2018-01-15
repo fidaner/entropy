@@ -107,7 +107,7 @@ def save_dataset( dataset_name, nyms, nym_proj_size, blocks, block_weights, elem
             fpin.write('%g ' % element_weight)
         fpin.write('\n')
     fpin.close()
-    print 'Dataset %s saved.' % dataset_name
+    print('Dataset %s saved.' % dataset_name)
     
 
 def read_dataset( dataset ):
@@ -141,13 +141,13 @@ def read_dataset( dataset ):
             element_weights[i] = element_weights[i].split()
         for j in range(len(element_weights[i])):
             element_weights[i][j] = float(element_weights[i][j])
-    print 'Dataset %s read.\nThere are %d blocks of %d nyms' % ( dataset, len(blocks), len(nyms) )
+    print('Dataset %s read.\nThere are %d blocks of %d nyms' % ( dataset, len(blocks), len(nyms) ))
     return nyms, blocks, block_weights, element_weights, nym_proj_size
 
 
 def prepare_text_all( text_name_all, text_filename, block_weights_filename, element_weights_filename, merge_lines, element_weight_power ):
 
-    print 'Preparing text %s ..' % text_name_all
+    print('Preparing text %s ..' % text_name_all)
 
     fpin = codecs.open(text_filename, 'r', 'utf-8' )
     lines = fpin.read().splitlines()
@@ -168,7 +168,7 @@ def prepare_text_all( text_name_all, text_filename, block_weights_filename, elem
         lines[i]=lines[i].split()
     i=0
 
-    print 'preparing lines...'
+    print('preparing lines...')
     while i<len(lines):
         if merge_lines==1 and len(lines[i])>0 and i<len(lines)-1 and len(lines[i+1])>0:
             # MERGE THIS LINE WITH THE PREVIOUS ONE
@@ -187,10 +187,10 @@ def prepare_text_all( text_name_all, text_filename, block_weights_filename, elem
         for j in range(len(lines[i])):
             j2 = 0
             while j2<len(lines[i][j]):
-                # ELIMINATE NO CHARS # if 0:
+                # ELIMINATE NO CHARS #
+                if 0:
                 # ELIMINATE NON-ALPHANUMERIC+++ CHARS # if not (lines[i][j][j2].isalnum() or lines[i][j][j2]==u"." or lines[i][j][j2]==u"'" or lines[i][j][j2]==u"-" or lines[i][j][j2]==u"_" or lines[i][j][j2]==u"#" or lines[i][j][j2]==u"@" or lines[i][j][j2]==u":" or lines[i][j][j2]==u"/"):
-                # ELIMINATE NON-ALPHANUMERIC+ CHARS #
-                if not (lines[i][j][j2].isalnum() or lines[i][j][j2]==u"." or lines[i][j][j2]==u"'" or lines[i][j][j2]==u"-" or lines[i][j][j2]==u"_"):
+                # ELIMINATE NON-ALPHANUMERIC+ CHARS # if not (lines[i][j][j2].isalnum() or lines[i][j][j2]==u"." or lines[i][j][j2]==u"," or lines[i][j][j2]==u"'" or lines[i][j][j2]==u"-" or lines[i][j][j2]==u"+" or lines[i][j][j2]==u"_" or lines[i][j][j2]==u"(" or lines[i][j][j2]==u")"):
                 # ELIMINATE NON-ALPHA+ CHARS # if not (lines[i][j][j2].isalpha() or lines[i][j][j2]==u"'" or lines[i][j][j2]==u"-" or lines[i][j][j2]==u"_"):
                     newstr = ''
                     if j2>0:
@@ -200,18 +200,18 @@ def prepare_text_all( text_name_all, text_filename, block_weights_filename, elem
                     lines[i][j] = newstr
                     j2-=1
                 j2+=1
-            if lines[i][j]==u"'":
-                lines[i][j]=''
-            else:
-                if lines[i][j]!='':
-                    # eliminate quotation marks from beginning & end
-                    while lines[i][j][0]==u"'":
-                        lines[i][j] = lines[i][j][1:]
-                    while lines[i][j][-1]==u"'":
-                        lines[i][j] = lines[i][j][0:-1]
+##            if lines[i][j]==u"'":
+##                lines[i][j]=''
+##            else:
+##                if lines[i][j]!='':
+##                    # eliminate quotation marks from beginning & end
+##                    while lines[i][j][0]==u"'":
+##                        lines[i][j] = lines[i][j][1:]
+##                    while lines[i][j][-1]==u"'":
+##                        lines[i][j] = lines[i][j][0:-1]
         i+=1
         
-    print 'preparing blocks...'
+    print('preparing blocks...')
 
     blocks = []
     nym_id = {}
@@ -294,7 +294,7 @@ def prepare_text_all( text_name_all, text_filename, block_weights_filename, elem
 
 def prepare_text_chosen( min_proj_size, max_proj_size, text_name_all, text_name_chosen, text_filename, merge_lines ):
 
-    print 'Preparing text %s ..' % text_name_chosen
+    print('Preparing text %s ..' % text_name_chosen)
 
     ( nyms, blocks, block_weights, element_weights, nym_proj_size ) = read_dataset( text_name_all )
 
@@ -348,6 +348,16 @@ def log_cluster_pair( log_file, min_pe, clusters, nyms, cod ):
 
     log_file.flush()
     
+	
+def log_cluster_pair2( log_file, min_pe, clusters, nyms, cod ):
+    log_file.write('( ')
+    log_file.write('%d ' % len(clusters[min_pe[1]]))
+    log_file.write(')+( ')
+    log_file.write('%s ' % len(clusters[min_pe[2]]))
+    log_file.write(') : %.30f\n' % min_pe[0])
+
+    log_file.flush()
+    
 
 def agglomerate_dataset(dataset, log_file, recurrence_base):
 
@@ -360,9 +370,9 @@ def agglomerate_dataset(dataset, log_file, recurrence_base):
         if block_weights[i] != '':
             total_weight += block_weights[i]
     if total_weight != 1:
-        print 'Total weight appears to be “%g” but is not exactly One.\nTo be handled nevertheless.' % total_weight
+        print('Total weight appears to be “%g” but is not exactly One.\nTo be handled nevertheless.' % total_weight)
 
-    print 'Begin entropy agglomeration ..'
+    print('Begin entropy agglomeration ..')
 
     # begin with singleton clusters
     clusters = []
@@ -382,7 +392,7 @@ def agglomerate_dataset(dataset, log_file, recurrence_base):
     next_percentage = 0.10
     for i in range(len(nyms)):
         if (i-1)/float(len(nyms)) < next_percentage and next_percentage <= i/float(len(nyms)):
-            print next_percentage*100, 'percent'
+            print(next_percentage*100, 'percent')
             next_percentage = next_percentage + 0.10
         entropies = []
         for j in range(i): #TODO: only compute projection entropies lower than a threshold???
@@ -393,13 +403,13 @@ def agglomerate_dataset(dataset, log_file, recurrence_base):
                 #log_cluster_pair( log_file, min_pe_cache[-1], clusters, nyms)
         merge_entropies.append( entropies )
 
-    print 'Initial matrix ready ..'
+    print('Initial matrix ready ..')
 
     # merge the best cluster pair and update the matrix
     # continue until only one cluster remains
     while len(merge_entropies) > 1:
 
-        cod = cumulative_occurences( len(nyms), blocks, clusters[min_pe_cache[-1][1]] + clusters[min_pe_cache[-1][2]] )
+        cod = 0 # cumulative_occurences( len(nyms), blocks, clusters[min_pe_cache[-1][1]] + clusters[min_pe_cache[-1][2]] )
 
         # record the bifurcation on the dendrogram
         bifurcation = [ bfc_inds[min_pe_cache[-1][1]], bfc_inds[min_pe_cache[-1][2]] ]
@@ -414,7 +424,7 @@ def agglomerate_dataset(dataset, log_file, recurrence_base):
         #log_file.write('%5d,%5d Merged!\n' % (min_pe_cache[-1][1],min_pe_cache[-1][2]))
         #log_file.flush()
         log_cluster_pair( log_file, min_pe_cache[-1], clusters, nyms, cod)
-        log_cluster_pair( sys.stdout, min_pe_cache[-1], clusters, nyms, cod)
+        log_cluster_pair2( sys.stdout, min_pe_cache[-1], clusters, nyms, cod)
 
         # delete invalidated cache entries
         for i in range(len(min_pe_cache)-2,-1,-1):
@@ -457,7 +467,7 @@ def agglomerate_dataset(dataset, log_file, recurrence_base):
 
     log_file.close()
 
-    print 'Writing bifurcations ..'
+    print('Writing bifurcations ..')
     with codecs.open('bifurcations_'+dataset+'.csv', 'wb', 'utf-8') as f:
         writer = csv.writer(f)
         writer.writerows(bifurcations)
@@ -470,7 +480,7 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile, figwidth ):
 
     ( nyms, blocks, block_weights, element_weights, nym_proj_size ) = read_dataset( dataset )
 
-    print 'Reading bifurcations ..'
+    print('Reading bifurcations ..')
     with codecs.open(treefile, 'rb', 'utf-8') as f:
         reader = csv.reader(f)
         bifurcations = []
@@ -487,8 +497,8 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile, figwidth ):
         if bifurcations[i][2] > overall_max_ent:
             overall_max_ent = bifurcations[i][2]        
 
-    if overall_min_ent > 0.01:
-        overall_min_ent = 0.01
+    if overall_min_ent > 0:
+        overall_min_ent = 0
 
     ent_offset = 0
     if overall_min_ent < 0:
@@ -509,36 +519,61 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile, figwidth ):
         if nym_longest < len(nym):
             nym_longest = len(nym)
 
-    fig = plt.figure(figsize=(nym_longest*0.088+figwidth,(len(nyms)+5)*0.22))
-    mpl.rc('lines', linewidth=3, color='r')
+    print(nym_longest*0.088,figwidth)
+    fig = plt.figure(figsize=(nym_longest*0.088+figwidth,(len(nyms)+5)*0.20))
+    mpl.rc('lines', linewidth=2, color='r')
 
-    print 'Producing dendrogram ..'
+    print('Producing dendrogram ..')
 
-    dendrogram(bifurcations,orientation='left',labels=nymshort,link_color_func=cfunc)
+    dendrogram(bifurcations,orientation='right',labels=nymshort,link_color_func=cfunc,leaf_font_size=8)
 
     y1,y2 = plt.ylim()
-    plt.plot([ent_offset, ent_offset], [y1, y2], '--', color="black", linewidth=1);
+    if overall_min_ent < 0:
+        plt.plot([ent_offset, ent_offset], [y1, y2], '--', color="black", linewidth=1);
 
-    print 'Saving dendrogram for %s ..' % plot_title
+    print('Saving dendrogram for %s ..' % plot_title)
 
 ##    plt.title('%s\n%d words in %d blocks' % (plot_title,len(nyms),len(blocks)))
-    if overall_max_ent-overall_min_ent<0.06:
-        plt.xticks(np.arange(ent_offset + 0, ent_offset + overall_max_ent+0.01, 0.01), np.arange(0, overall_max_ent+0.01, 0.01))
+
+    ax=plt.gca() 
+    ticks = ax.get_xticks()
+    if overall_min_ent < 0:
+        min_x = -(-overall_min_ent // ticks[1]-ticks[0])*(ticks[1]-ticks[0])
     else:
-        if overall_max_ent-overall_min_ent<0.10:
-            plt.xticks(np.arange(ent_offset + 0, ent_offset + overall_max_ent+0.01, 0.02), np.arange(0, overall_max_ent+0.01, 0.02))
-        else:
-            if overall_max_ent-overall_min_ent<0.30:
-                plt.xticks(np.arange(ent_offset + 0, ent_offset + overall_max_ent+0.01, 0.05), np.arange(0, overall_max_ent+0.01, 0.05))
-            else:
-                plt.xticks(np.arange(ent_offset + 0, ent_offset + overall_max_ent+0.01, 0.1), np.arange(0, overall_max_ent+0.01, 0.1))
-                
+        min_x = 0
+    plt.xticks(np.arange(ent_offset + min_x, ent_offset + overall_max_ent+0.00001, ticks[1]-ticks[0]), np.arange(min_x, overall_max_ent+0.00001, ticks[1]-ticks[0]))
+
+    
+##    if overall_max_ent-overall_min_ent<0.03:
+##        plt.xticks(np.arange(ent_offset + overall_min_ent-0.00001, ent_offset + overall_max_ent+0.00001, 0.005), np.arange(overall_min_ent-0.00001, overall_max_ent+0.00001, 0.005))
+##    else:
+##        if overall_max_ent-overall_min_ent<0.06:
+##            plt.xticks(np.arange(ent_offset + overall_min_ent-0.00001, ent_offset + overall_max_ent+0.00001, 0.01), np.arange(overall_min_ent-0.00001, overall_max_ent+0.00001, 0.01))
+##        else:
+##            if overall_max_ent-overall_min_ent<0.10:
+##                plt.xticks(np.arange(ent_offset + overall_min_ent-0.00001, ent_offset + overall_max_ent+0.00001, 0.02), np.arange(overall_min_ent-0.00001, overall_max_ent+0.00001, 0.02))
+##            else:
+##                if overall_max_ent-overall_min_ent<0.30:
+##                    plt.xticks(np.arange(ent_offset + overall_min_ent-0.00001, ent_offset + overall_max_ent+0.00001, 0.05), np.arange(overall_min_ent-0.00001, overall_max_ent+0.00001, 0.05))
+##                else:
+##                    plt.xticks(np.arange(ent_offset + overall_min_ent-0.00001, ent_offset + overall_max_ent+0.00001, 0.1), np.arange(overall_min_ent-0.00001, overall_max_ent+0.00001, 0.1))                
+
     
     fig.tight_layout()
     fig.savefig(outfile+'.png')
     fig.savefig(outfile+'.pdf')
     fig.savefig(outfile+'.eps', format='eps', dpi=1000)
 
+
+
+##text_name = 'music' 
+##text_name_chosen = '%s_chosen_%g-%g' % ( text_name, 3000, inf )
+##plot_title = 'Projection sizes %g-%g' % (3000, inf)
+##dataset = text_name_chosen
+##outfile = 'ea_'+text_name_chosen
+##treefile = 'bifurcations_'+text_name_chosen+'.csv'
+##draw_dendrogram( plot_title, treefile, text_name_chosen, outfile )
+##sys.exit()
 
 
 
@@ -606,7 +641,7 @@ for text_name in text_names:
     assert os.path.exists(text_name+'.txt')==1, 'Where is my input? (%s.txt ?)' % text_name
     
     os.mkdir(text_name)
-    print 'Directory created: %s' % text_name
+    print('Directory created: %s' % text_name)
 
     text_filename = '%s.txt' % text_name
     block_weights_filename = '%s-block-weights.txt' % text_name
@@ -621,7 +656,7 @@ for text_name in text_names:
     outfiles0.append('block_weights_%s.txt' % text_name_all)
     outfiles0.append('element_weights_%s.txt' % text_name_all)
     
-    print '---'
+    print('---')
 
     try:
             
@@ -657,7 +692,7 @@ for text_name in text_names:
             
             log_file = codecs.open('agglomerate_%s.log' % dataset, 'w', 'utf-8' )
 
-            print '---'
+            print('---')
         
             try:
                 agglomerate_dataset( dataset, log_file, recurrence_base )
@@ -672,14 +707,14 @@ for text_name in text_names:
                     os.rename(outfile,text_name+'/'+outfile)
 
             except:
-                print '~ Exception! ~'
+                print('~ Exception! ~')
                 log_file.close()
-                print "Error:", sys.exc_info()
+                print("Error:", sys.exc_info())
 ##                for outfile in outfiles:
 ##                    if os.path.isfile(outfile):
 ##                        print 'Removing %s ..' % outfile 
 ##                        os.remove(outfile)
-                print '~~~'
+                print('~~~')
                    
         for outfile in outfiles0:
             os.rename(outfile,text_name+'/'+outfile)
@@ -687,13 +722,13 @@ for text_name in text_names:
         winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS)
 
     except:
-        print '~ Exception! ~'
-        print "Error:", sys.exc_info()
+        print('~ Exception! ~')
+        print("Error:", sys.exc_info())
 ##        for outfile in outfiles0:
 ##            if os.path.isfile(outfile):
 ##                print 'Removing %s ..' % outfile 
 ##                os.remove(outfile)
-        print '~~~'
+        print('~~~')
         raise
         
 
