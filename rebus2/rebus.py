@@ -298,6 +298,11 @@ def prepare_text_chosen( min_proj_size, max_proj_size, text_name_all, text_name_
 
     ( nyms, blocks, block_weights, element_weights, nym_proj_size ) = read_dataset( text_name_all )
 
+    if take_with_max_proj_size>0 and take_with_max_proj_size<=len(nyms):
+        nym_proj_size_sorted = sorted(nym_proj_size.values())
+        max_proj_size = inf
+        min_proj_size = nym_proj_size_sorted[len(nyms)-take_with_max_proj_size]
+
     id_map = []
     chosen_nym_count = 0
     chosen_nym_id = {}
@@ -588,6 +593,8 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile, figwidth ):
 # https://fidaner.wordpress.com/2017/05/18/entropy-as-a-measure-of-irrelevance/
 
 element_weight_power = 1
+
+take_with_max_proj_size = 0
 
 figwidth = 3
 
