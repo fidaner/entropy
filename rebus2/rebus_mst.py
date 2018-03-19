@@ -48,12 +48,6 @@ def projection_entropy( nym_count, blocks, block_weights, element_weights, subse
                 pe += - p * math.log(p) * block_weights[i]
 
 ##    if pe<0:
-####        for elm in subset:
-####            print(elm)
-####            print(nyms[elm-1])
-##        print(proj_indices)
-##        print(pe)
-##        
 ##        alt_pe = pe
 ##        addition = 0
 ##        while alt_pe<0:
@@ -270,8 +264,8 @@ def prepare_text_all( text_name_all, text_filename, block_weights_filename, elem
     for i in range(len(blocks)):
         j = 1
         while j < len(blocks[i]):
-            if blocks[i][j] in blocks[i][0:j]:
-                ind = blocks[i][0:j].index(blocks[i][j])
+            if blocks[i][j] in blocks[i][0:j-1]:
+                ind = blocks[i][0:j-1].index(blocks[i][j])
                 element_weights[i][ind] += element_weights[i][j]
                 del element_weights[i][j]
                 del blocks[i][j]
@@ -408,13 +402,6 @@ def agglomerate_dataset(dataset, log_file, recurrence_base):
         entropies = []
         for j in range(i): #TODO: only compute projection entropies lower than a threshold???
             pe = projection_entropy( len(nyms), blocks, block_weights, element_weights, clusters[j] + clusters[i], recurrence_base )
-
-##            if pe<0:
-##                for elm in clusters[j] + clusters[i]:
-##                    print(elm)
-##                    print(nyms[elm-1])
-##                hhgfh
-            
             entropies.append( pe / float(total_weight) )
             if entropies[j] < min_pe_cache[-1][0]:
                 min_pe_cache.append( [entropies[j], j, i] )
@@ -423,11 +410,48 @@ def agglomerate_dataset(dataset, log_file, recurrence_base):
 
     print('Initial matrix ready ..')
 
+    f=open('mst.txt','wt')
+    f2=open('size.txt','wt')
+
     # merge the best cluster pair and update the matrix
     # continue until only one cluster remains
     while len(merge_entropies) > 1:
 
         cod = 0 # cumulative_occurences( len(nyms), blocks, clusters[min_pe_cache[-1][1]] + clusters[min_pe_cache[-1][2]] )
+
+        # construct a minimum spanning tree that includes min_pe_cache[-1]
+        print('constructing mst with %d nodes' % len(merge_entropies))
+        mst_nodes = []
+        mst_edges = []
+        mst_parts = []
+        for i in range(len(merge_entropies)):
+            mst_parts.append(i)
+        mst_all_edges = []
+        for i in range(len(merge_entropies)):
+            for j in range(len(merge_entropies[i])):
+                mst_all_edges.append((merge_entropies[i][j],i+1,j+1))
+        mst_all_edges = sorted(mst_all_edges, key=lambda ed: ed[0])
+        for i in range(len(mst_all_edges)):
+            edge = mst_all_edges[i]
+##            print(edge)
+            if not (mst_parts[edge[1]-1] == mst_parts[edge[2]-1]):
+##                print('add edge')
+                if edge[1]-1 not in mst_nodes:
+                    mst_nodes.append(edge[1]-1)
+                if edge[2]-1 not in mst_nodes:
+                    mst_nodes.append(edge[2]-1)
+                mst_edges.append([edge[1], edge[2]])
+                f.write('%d,%d,%g,' % (edge[1],edge[2],merge_entropies[edge[1]-1][edge[2]-1]))
+                old_part = mst_parts[edge[2]-1]
+                for i in range(len(merge_entropies)):
+                    if mst_parts[i] == old_part:
+                        mst_parts[i] = mst_parts[edge[1]-1]
+            if len(mst_edges) == len(merge_entropies)-1:
+                break
+        for i in range(len(merge_entropies)):
+            f2.write('%d (%d),' % (i+1,len(clusters[i])))
+        f2.write('\n')
+        f.write('\n')
 
         # record the bifurcation on the dendrogram
         bifurcation = [ bfc_inds[min_pe_cache[-1][1]], bfc_inds[min_pe_cache[-1][2]] ]
@@ -484,6 +508,8 @@ def agglomerate_dataset(dataset, log_file, recurrence_base):
                     #log_cluster_pair( log_file, min_pe_cache[-1], clusters, nyms )
 
     log_file.close()
+    f.close()
+    f2.close()
 
     print('Writing bifurcations ..')
     with codecs.open('bifurcations_'+dataset+'.csv', 'wb', 'utf-8') as f:
@@ -605,14 +631,14 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile, figwidth ):
 # The following alternative settings are for running the examples on this page:
 # https://fidaner.wordpress.com/2017/05/18/entropy-as-a-measure-of-irrelevance/
 
-element_weight_power = 0
+element_weight_power = 0.1
 take_with_max_proj_size = 0
 
-text_names = [ 'pubchem_data' ]
-take_with_max_proj_size = 500
+text_names = [ 'single_cell_data' ]
+take_with_max_proj_size = 0
 min_proj_sizes = [1]
 max_proj_sizes = [inf]
-recurrence_base = 1
+recurrence_base = 1.8
 figwidth = 3
 
 
