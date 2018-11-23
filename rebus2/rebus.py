@@ -23,7 +23,6 @@ import numpy
 import scipy
 import codecs
 import winsound
-from pylab import *
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from scipy.cluster.hierarchy import linkage, dendrogram
@@ -306,7 +305,7 @@ def prepare_text_chosen( min_proj_size, max_proj_size, text_name_all, text_name_
 
     if take_with_max_proj_size>0 and take_with_max_proj_size<=len(nyms):
         nym_proj_size_sorted = sorted(nym_proj_size.values())
-        max_proj_size = inf
+        max_proj_size = float('Inf')
         min_proj_size = nym_proj_size_sorted[len(nyms)-take_with_max_proj_size]
 
     id_map = []
@@ -471,7 +470,7 @@ def agglomerate_dataset(dataset, log_file, recurrence_base):
         # delete the cache entry for the merged pair
         del min_pe_cache[-1]
         if len(min_pe_cache)==0:
-            min_pe_cache.append( [ inf, 0, 0 ] )
+            min_pe_cache.append( [ float('Inf'), 0, 0 ] )
                    
         # begin from the next entry
         i0 = min_pe_cache[-1][2]
@@ -553,13 +552,16 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile, figwidth ):
 
 ##    plt.title('%s\n%d words in %d blocks' % (plot_title,len(nyms),len(blocks)))
 
+    plt.rcParams['pdf.fonttype'] = 42
+    plt.rcParams['font.family'] = 'Calibri'
+
     ax=plt.gca() 
     ticks = ax.get_xticks()
     if overall_min_ent < 0:
         min_x = -(-overall_min_ent // ticks[1]-ticks[0])*(ticks[1]-ticks[0])
     else:
         min_x = 0
-    plt.xticks(np.arange(ent_offset + min_x, ent_offset + overall_max_ent+0.00001, ticks[1]-ticks[0]), np.arange(min_x, overall_max_ent+0.00001, ticks[1]-ticks[0]))
+    plt.xticks(numpy.arange(ent_offset + min_x, ent_offset + overall_max_ent+0.00001, ticks[1]-ticks[0]), numpy.arange(min_x, overall_max_ent+0.00001, ticks[1]-ticks[0]))
 
     
 ##    if overall_max_ent-overall_min_ent<0.03:
@@ -585,8 +587,8 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile, figwidth ):
 
 
 ##text_name = 'music' 
-##text_name_chosen = '%s_chosen_%g-%g' % ( text_name, 3000, inf )
-##plot_title = 'Projection sizes %g-%g' % (3000, inf)
+##text_name_chosen = '%s_chosen_%g-%g' % ( text_name, 3000, float('Inf') )
+##plot_title = 'Projection sizes %g-%g' % (3000, float('Inf'))
 ##dataset = text_name_chosen
 ##outfile = 'ea_'+text_name_chosen
 ##treefile = 'bifurcations_'+text_name_chosen+'.csv'
@@ -607,46 +609,33 @@ def draw_dendrogram( plot_title, treefile, dataset, outfile, figwidth ):
 
 element_weight_power = 0
 take_with_max_proj_size = 0
-
-text_names = [ 'pubchem_data' ]
-take_with_max_proj_size = 500
-min_proj_sizes = [1]
-max_proj_sizes = [inf]
-recurrence_base = 1
 figwidth = 3
 
-
-
+text_names = [ 'iris10-5-3' ]
+min_proj_sizes = [1]
+max_proj_sizes = [float('Inf')]
+recurrence_base = 1
 
 ##text_names = [ 'myco-p' ]
 ##min_proj_sizes = [5]
-##max_proj_sizes = [inf]
+##max_proj_sizes = [float('Inf')]
 ##recurrence_base = 30
 
 ##text_names = [ 'myco-f' ]
 ##min_proj_sizes = [3]
-##max_proj_sizes = [inf]
+##max_proj_sizes = [float('Inf')]
 ##recurrence_base = 10
 
 ##text_names = [ 'dino' ]
 ##min_proj_sizes = [1]
-##max_proj_sizes = [inf]
+##max_proj_sizes = [float('Inf')]
 ##recurrence_base = 1
 
 ##text_names = [ 'music' ]
 ##min_proj_sizes = [20000]
-##max_proj_sizes = [ inf]
+##max_proj_sizes = [ float('Inf')]
 ##recurrence_base = 40
 
-##text_names = [ 'tweets' ]
-##min_proj_sizes = [3000,2000,1000]
-##max_proj_sizes = [ inf, inf, inf]
-##recurrence_base = 1
-
-##text_names = [ 'example' ]
-##min_proj_sizes = [1]
-##max_proj_sizes = [inf]
-##recurrence_base = 1
 
 merge_lines = 0
 # 0: put each line in a separate paragraph (separated by single newlines)
