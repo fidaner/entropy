@@ -375,18 +375,27 @@ def add(dataset, log_file, recurrence_base, addsets):
         plt.plot(pes)
         plt.ylabel('entropy')
         plt.xticks([0,1,2,3],addset)
-        plt.savefig('test%d.png' % i)
+        plt.savefig('test%d-pes.png' % i)
         clf()
-        i+=1
 
         subset = []
+        plt.figure(figsize=(4,2.5))
+        j=1
         for elm in addset:
             print("adding",elm)
             subset.append(nyms.index(elm)+1)
             cod = cumulative_occurences( len(nyms), blocks, subset )
             print(cod)
+            del cod[0]
+            plt.bar(range(1,j+1),cod)
+            plt.ylabel('cod')
+            plt.ylim(0,55)
+            plt.xticks([1,2,3,4],[1,2,3,4])
+            plt.savefig('test%d-cod%d.png' % (i,j))
+            clf()
+            j+=1
 
-
+        i+=1
 
 
 
