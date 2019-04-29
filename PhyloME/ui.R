@@ -1,4 +1,5 @@
 library(shiny)
+library(shinycssloaders)
 
 shinyUI(fluidPage(
   titlePanel("Phylogeny by Minimum Entropy - Işık Barış Fidaner"),
@@ -9,7 +10,10 @@ shinyUI(fluidPage(
     actionButton("use","Use aligned FASTA to draw a phylogenetic tree")
   ),
   fluidRow(
-    plotOutput("plot")
+    textOutput("status"),
+    withSpinner(plotOutput("plot")),
+    textAreaInput("newick","Newick code:",width=850,height=100),
+    downloadButton("downbtn","Download Newick")
   )
 )
   
