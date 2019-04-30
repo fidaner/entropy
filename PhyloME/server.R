@@ -77,6 +77,142 @@ write_newick2 <- function( str, bifurcations, ind )
 }
 
 
+agglomerate <- function(labels,blocks)
+{
+  n = length(labels)
+
+  # begin with singleton clusters
+  clusters = list()
+  bfc_inds = c()
+  for(i in 1:n)
+  {	clusters[[i]] = c(i)
+  bfc_inds = c(bfc_inds, -i)
+  }
+  bfc_count = n
+  merge_entropies = list()
+  
+  # initialize the cache of minimum projection entropies
+  min_pe_cache = list()
+  min_pe_cache[[1]] = c(Inf,1,1)
+  
+  # compute the initial matrix and cache the cluster pairs with minimum projection entropy
+  for(i in 1:n)
+  {	entropies = c()
+  if(i>1)
+    for(j in 1:(i-1))
+    {	pe = projection_entropy( n, blocks, c(clusters[[j]],clusters[[i]]) )
+    entropies = c(entropies,pe)
+    if(pe < min_pe_cache[[length(min_pe_cache)]][1])
+      min_pe_cache[[length(min_pe_cache)+1]] = c(pe,j,i)
+    }
+  merge_entropies[[i]] = entropies
+  }
+  
+
+
+  bifurcations = list()
+  bifurcations_merge = matrix(ncol=2,nrow=0)
+  bifurcations_height = c()
+  
+  # merge the best cluster pair and update the matrix
+  # continue until only one cluster remains
+  while(length(merge_entropies) > 1)
+  {
+    # print(bifurcations_merge)
+    
+    # record the bifurcation on the dendrogram
+    bifurcations_merge <- rbind(bifurcations_merge, 0)
+    bifurcations_height[nrow(bifurcations_merge)] =	min_pe_cache[[length(min_pe_cache)]][1]
+    bifurcations_merge[nrow(bifurcations_merge),1] = bfc_inds[[min_pe_cache[[length(min_pe_cache)]][2]]]
+    bifurcations_merge[nrow(bifurcations_merge),2] = bfc_inds[[min_pe_cache[[length(min_pe_cache)]][3]]]
+    bfc_inds = bfc_inds[-min_pe_cache[[length(min_pe_cache)]][3]]
+    bfc_count = bfc_count + 1
+    bfc_inds[min_pe_cache[[length(min_pe_cache)]][2]] = bfc_count - n
+    
+    # print(merge_entropies)
+    # print(min_pe_cache)
+    # 
+    # # log the event of merging
+    # print(clusters[[min_pe_cache[[length(min_pe_cache)]][2]]])
+    # print(clusters[[min_pe_cache[[length(min_pe_cache)]][3]]])
+    # print(min_pe_cache[[length(min_pe_cache)]][1])
+    
+    # delete invalidated cache entries
+    for(i in (length(min_pe_cache)-1):1)
+      if(min_pe_cache[[i]][3] >= min_pe_cache[[length(min_pe_cache)]][2])
+        min_pe_cache[[i]] <- NULL
+    
+    # remove the second cluster from the matrix
+    merge_entropies[[min_pe_cache[[length(min_pe_cache)]][3]]] <- NULL
+    if(min_pe_cache[[length(min_pe_cache)]][3] <= length(merge_entropies))
+      for(i in min_pe_cache[[length(min_pe_cache)]][3]:length(merge_entropies))
+      {
+        merge_entropies[[i]] = merge_entropies[[i]][-min_pe_cache[[length(min_pe_cache)]][3]]
+      }
+    
+    # merge the cluster pair to the first cluster
+    clusters[[min_pe_cache[[length(min_pe_cache)]][2]]] = c(clusters[[min_pe_cache[[length(min_pe_cache)]][2]]],clusters[[min_pe_cache[[length(min_pe_cache)]][3]]])
+    clusters[[min_pe_cache[[length(min_pe_cache)]][3]]] <- NULL
+    
+    # recompute the first cluster on the matrix
+    j = min_pe_cache[[length(min_pe_cache)]][2]
+    if(j+1 <= length(merge_entropies))
+      for(i in (j+1):length(merge_entropies))
+      {	pe = projection_entropy( n, blocks, c(clusters[[j]],clusters[[i]]) )
+      merge_entropies[[i]][j] = pe
+      }
+    i = min_pe_cache[[length(min_pe_cache)]][2]
+    if(i>1)
+      for(j in 1:(i-1))
+      {	pe = projection_entropy( n, blocks, c(clusters[[j]],clusters[[i]]) )
+      merge_entropies[[i]][j] = pe
+      }
+    
+    # delete the cache entry for the merged pair
+    min_pe_cache[[length(min_pe_cache)]] <- NULL
+    if(length(min_pe_cache) == 0)
+      min_pe_cache[[1]] = c(Inf,1,1)
+    
+    # begin from the next entry
+    # i0 = min_pe_cache[[length(min_pe_cache)]][3]
+    
+    # cache the cluster pairs with minimum projection entropy
+    for(i in 1:length(merge_entropies))
+      if(i>1)
+        for(j in 1:(i-1))
+          if(merge_entropies[[i]][j] < min_pe_cache[[length(min_pe_cache)]][1])
+            min_pe_cache[[length(min_pe_cache)+1]] = c(merge_entropies[[i]][j],j,i)
+    
+  }
+    
+
+  
+  bifurcations$merge = bifurcations_merge
+  bifurcations$height = bifurcations_height
+  bifurcations$order = 1:n
+  bifurcations$labels = labels
+  class(bifurcations) = 'hclust'
+
+  return(bifurcations)
+}
+
+blockify <- function(seqs)
+{
+  blocks = list()
+  for(i in 1:length(seqs))
+  {
+    pn = names(seqs)[i]
+    for(j in 1:nchar(seqs[[pn]]))
+      if(substring(seqs[[pn]],j,j)!='-')
+      {
+        feature = paste(j,substring(seqs[[pn]],j,j),sep=":")
+        blocks[[feature]] = c(blocks[[feature]], i)
+      }
+  }
+  return(blocks)
+}
+
+
 
 shinyServer( function(input,output,session) {
   
@@ -124,25 +260,84 @@ shinyServer( function(input,output,session) {
           }
         }
         
+        labels = names(seqs)
+
+                
+
+        num_bs = input$bs
+
+        withProgress(message = 'Bootstrap', value = 0, {
+          
+          if(num_bs > 0)
+          {
+            clades = list()
+            
+            for(i in 1:num_bs)
+            {
+              bootstrap = seqs
+              
+              l = nchar(seqs[[labels[[1]]]])
+              cols = sample(2:l,size=round(l/2))
+              for(pn in labels)
+              {
+                newstr=''
+                for(j in 1:l)
+                  if(j %in% cols)
+                    newstr = paste(newstr,substring(bootstrap[[pn]],j-1,j-1),sep="")
+                  else
+                    newstr = paste(newstr,substring(bootstrap[[pn]],j,j),sep="")
+                bootstrap[[pn]] = newstr
+              }
+              
+              blocks = blockify(bootstrap)
+              
+              bifurcations = agglomerate(labels, blocks)
+              
+              pop = list()
+              for(j in 1:nrow(bifurcations$merge))
+              {
+                pop1 = c()
+                for(k in 1:2)
+                {
+                  if(bifurcations$merge[j,k]<0)
+                  {
+                    pop1 = c(pop1,-bifurcations$merge[j,k])
+                  }
+                  else
+                  {
+                    pop1 = c(pop1,pop[[bifurcations$merge[j,k]]])
+                  }
+                }
+                pop[[j]] = sort(pop1)
+              }
+              
+              for(j in 1:length(pop))
+              {
+                clade = paste(pop[[j]],collapse=" ")
+                
+                if(is.null(clades[[clade]]))
+                  clades[[clade]] = 0
+                clades[[clade]] = clades[[clade]] + 1/num_bs
+              }
+              incProgress(1/num_bs)
+            }
+          }
+        })        
+        
+
+                
+        
+        
         
         # read into blocks
         
+        blocks = blockify(seqs)
         
-        withProgress(message = 'Loading sequences', value = 0, {
-          blocks = list()
-          for(i in 1:length(seqs))
-          {
-            pn = names(seqs)[i]
-            for(j in 1:nchar(seqs[[pn]]))
-              if(substring(seqs[[pn]],j,j)!='-')
-              {
-                feature = paste(j,substring(seqs[[pn]],j,j),sep=":")
-                blocks[[feature]] = c(blocks[[feature]], i)
-              }
-            incProgress(1/length(seqs))
-          }
-          labels = names(seqs)
-        })
+        
+        
+        
+        
+        
         
         # start
         
@@ -197,123 +392,39 @@ shinyServer( function(input,output,session) {
         
         if(n>0)
         {
-          withProgress(message = 'Computing initial entropies', value = 0, {
-  
-            # begin with singleton clusters
-            clusters = list()
-            bfc_inds = c()
-            for(i in 1:n)
-            {	clusters[[i]] = c(i)
-            bfc_inds = c(bfc_inds, -i)
-            }
-            bfc_count = n
-            merge_entropies = list()
-            
-            # initialize the cache of minimum projection entropies
-            min_pe_cache = list()
-            min_pe_cache[[1]] = c(Inf,1,1)
-            
-            # compute the initial matrix and cache the cluster pairs with minimum projection entropy
-            for(i in 1:n)
-            {	entropies = c()
-            if(i>1)
-              for(j in 1:(i-1))
-              {	pe = projection_entropy( n, blocks, c(clusters[[j]],clusters[[i]]) )
-              entropies = c(entropies,pe)
-              if(pe < min_pe_cache[[length(min_pe_cache)]][1])
-                min_pe_cache[[length(min_pe_cache)+1]] = c(pe,j,i)
-              }
-            merge_entropies[[i]] = entropies
-            incProgress(1/n)
-            }
+          bifurcations = agglomerate(labels, blocks)
           
-          })
-
-          withProgress(message = 'Computing entropies', value = 0, {
-              
-            bifurcations = list()
-            bifurcations_merge = matrix(ncol=2,nrow=0)
-            bifurcations_height = c()
-            
-            # merge the best cluster pair and update the matrix
-            # continue until only one cluster remains
-            while(length(merge_entropies) > 1)
+          
+          if(num_bs>0)
+          {
+            pop = list()
+            for(j in 1:nrow(bifurcations$merge))
             {
-              # print(bifurcations_merge)
-              
-              # record the bifurcation on the dendrogram
-              bifurcations_merge <- rbind(bifurcations_merge, 0)
-              bifurcations_height[nrow(bifurcations_merge)] =	min_pe_cache[[length(min_pe_cache)]][1]
-              bifurcations_merge[nrow(bifurcations_merge),1] = bfc_inds[[min_pe_cache[[length(min_pe_cache)]][2]]]
-              bifurcations_merge[nrow(bifurcations_merge),2] = bfc_inds[[min_pe_cache[[length(min_pe_cache)]][3]]]
-              bfc_inds = bfc_inds[-min_pe_cache[[length(min_pe_cache)]][3]]
-              bfc_count = bfc_count + 1
-              bfc_inds[min_pe_cache[[length(min_pe_cache)]][2]] = bfc_count - n
-              
-              print(merge_entropies)
-              print(min_pe_cache)
-              
-              # log the event of merging
-              print(clusters[[min_pe_cache[[length(min_pe_cache)]][2]]])
-              print(clusters[[min_pe_cache[[length(min_pe_cache)]][3]]])
-              print(min_pe_cache[[length(min_pe_cache)]][1])
-              
-              # delete invalidated cache entries
-              for(i in (length(min_pe_cache)-1):1)
-                if(min_pe_cache[[i]][3] >= min_pe_cache[[length(min_pe_cache)]][2])
-                  min_pe_cache[[i]] <- NULL
-  
-              # remove the second cluster from the matrix
-              merge_entropies[[min_pe_cache[[length(min_pe_cache)]][3]]] <- NULL
-              if(min_pe_cache[[length(min_pe_cache)]][3] <= length(merge_entropies))
-                for(i in min_pe_cache[[length(min_pe_cache)]][3]:length(merge_entropies))
+              pop1 = c()
+              for(k in 1:2)
+              {
+                if(bifurcations$merge[j,k]<0)
                 {
-                  merge_entropies[[i]] = merge_entropies[[i]][-min_pe_cache[[length(min_pe_cache)]][3]]
+                  pop1 = c(pop1,-bifurcations$merge[j,k])
                 }
-              
-              # merge the cluster pair to the first cluster
-              clusters[[min_pe_cache[[length(min_pe_cache)]][2]]] = c(clusters[[min_pe_cache[[length(min_pe_cache)]][2]]],clusters[[min_pe_cache[[length(min_pe_cache)]][3]]])
-              clusters[[min_pe_cache[[length(min_pe_cache)]][3]]] <- NULL
-              
-              # recompute the first cluster on the matrix
-              j = min_pe_cache[[length(min_pe_cache)]][2]
-              if(j+1 <= length(merge_entropies))
-                for(i in (j+1):length(merge_entropies))
-                {	pe = projection_entropy( n, blocks, c(clusters[[j]],clusters[[i]]) )
-                merge_entropies[[i]][j] = pe
+                else
+                {
+                  pop1 = c(pop1,pop[[bifurcations$merge[j,k]]])
                 }
-              i = min_pe_cache[[length(min_pe_cache)]][2]
-              if(i>1)
-                for(j in 1:(i-1))
-                {	pe = projection_entropy( n, blocks, c(clusters[[j]],clusters[[i]]) )
-                merge_entropies[[i]][j] = pe
-                }
-              
-              # delete the cache entry for the merged pair
-              min_pe_cache[[length(min_pe_cache)]] <- NULL
-              if(length(min_pe_cache) == 0)
-                min_pe_cache[[1]] = c(Inf,1,1)
-              
-              # begin from the next entry
-              # i0 = min_pe_cache[[length(min_pe_cache)]][3]
-              
-              # cache the cluster pairs with minimum projection entropy
-              for(i in 1:length(merge_entropies))
-                if(i>1)
-                  for(j in 1:(i-1))
-                    if(merge_entropies[[i]][j] < min_pe_cache[[length(min_pe_cache)]][1])
-                      min_pe_cache[[length(min_pe_cache)+1]] = c(merge_entropies[[i]][j],j,i)
-              
-              incProgress(1/n)
+              }
+              pop[[j]] = sort(pop1)
             }
             
-          })
+            au = c()
+            bp = c()
+            for(j in 1:length(pop))
+            {
+              clade = paste(pop[[j]],collapse=" ")
 
-
-          bifurcations$merge = bifurcations_merge
-          bifurcations$height = bifurcations_height
-          bifurcations$order = 1:n
-          bifurcations$labels = labels
+              au[j] = NA
+              bp[j] = clades[[clade]]
+            }            
+          }
           
           
           # SAVE NEWICK FILE
@@ -329,9 +440,23 @@ shinyServer( function(input,output,session) {
           updateTextAreaInput(session, "newick", value = ret$str)
           
 
-          class(bifurcations) = 'hclust'
-          bifurcations = as.dendrogram(bifurcations)
-          plot(bifurcations,ylab="entropy")
+          # bifurcations = as.dendrogram(bifurcations)
+          # plot(bifurcations,ylab="entropy")
+
+          if(num_bs==0)
+          {
+            plot(bifurcations,ylab="entropy")
+          }
+          else
+          {
+            pv = list()
+            pv$hclust = bifurcations
+              pv$edges = data.frame(au=au,bp=bp)
+            class(pv) = 'pvclust'
+            plot(pv,ylab="entropy")
+          }
+          
+          
         }
       }
       
