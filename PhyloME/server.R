@@ -1,5 +1,9 @@
 library(shiny)
 library(rlist)
+library(pvclust)
+
+# options(shiny.error = browser)
+
 
 projection_entropy <- function( n, blocks, subset )
 {
@@ -67,6 +71,8 @@ write_newick2 <- function( str, bifurcations, ind )
     str <- paste(str,paste(":",bifurcations$height[ind]-pe,sep=""),sep="")
     str <- paste(str,")",sep="")
     #TODO: bootstrap
+    if(!is.null(bifurcations$bp))
+      str <- paste(str,round(bifurcations$bp[ind]*100),sep="")
     return(list(pe=bifurcations$height[ind],str=str))
   }
   else
@@ -237,6 +243,8 @@ shinyServer( function(input,output,session) {
       
       if(input$data!="")
       {
+        start = Sys.time()
+        
         # read FASTA
         
         data <- strsplit(input$data,"\n")[[1]]
@@ -422,8 +430,13 @@ shinyServer( function(input,output,session) {
               clade = paste(pop[[j]],collapse=" ")
 
               au[j] = NA
-              bp[j] = clades[[clade]]
+              if(clade %in% names(clades))
+                bp[j] = clades[[clade]]
+              else
+                bp[j] = 0
             }            
+            
+            bifurcations$bp = bp
           }
           
           
@@ -433,6 +446,7 @@ shinyServer( function(input,output,session) {
           # pe = write_newick(bifurcations,ind)
           # cat(";")
           # sink()
+          
           
           ind = nrow(bifurcations$merge)
           ret = write_newick2("",bifurcations,ind)
@@ -451,13 +465,18 @@ shinyServer( function(input,output,session) {
           {
             pv = list()
             pv$hclust = bifurcations
-              pv$edges = data.frame(au=au,bp=bp)
+            pv$edges = data.frame(au=au,bp=bp)
             class(pv) = 'pvclust'
             plot(pv,ylab="entropy")
           }
           
           
         }
+        
+        end = Sys.time()
+        
+        output$status <- renderText({ sprintf("It took %g seconds", round(difftime(end,start,units="secs"))) })
+        
       }
       
     })
