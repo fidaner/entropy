@@ -1,8 +1,11 @@
 library(shiny)
 library(rlist)
 library(pvclust)
+library(mailR)
 
 # options(shiny.error = browser)
+
+source("auth.R")
 
 
 projection_entropy <- function( n, blocks, subset )
@@ -454,6 +457,21 @@ shinyServer( function(input,output,session) {
           updateTextAreaInput(session, "newick", value = ret$str)
           
 
+          sender <- "SENDER@gmail.com"
+          recipients <- c("fidaner@gmail.com")
+          send.mail(from = sender,
+                    to = recipients,
+                    subject = "Subject of the email",
+                    body = "Body of the email TEST",
+                    smtp = list(host.name = "smtp.gmail.com", port = 465, 
+                                user.name = uname,            
+                                passwd = pwd, ssl = TRUE),
+                    authenticate = TRUE,
+                    send = TRUE)
+          
+          
+          
+          
           # bifurcations = as.dendrogram(bifurcations)
           # plot(bifurcations,ylab="entropy")
 
