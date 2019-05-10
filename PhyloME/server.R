@@ -244,6 +244,8 @@ shinyServer( function(input,output,session) {
     
     isolate({
       
+      shinyjs::disable("use")
+      
       if(input$data!="")
       {
         start = Sys.time()
@@ -457,17 +459,30 @@ shinyServer( function(input,output,session) {
           updateTextAreaInput(session, "newick", value = ret$str)
           
 
-          sender <- "SENDER@gmail.com"
-          recipients <- c("fidaner@gmail.com")
-          send.mail(from = sender,
-                    to = recipients,
-                    subject = "Subject of the email",
-                    body = "Body of the email TEST",
-                    smtp = list(host.name = "smtp.gmail.com", port = 465, 
-                                user.name = uname,            
-                                passwd = pwd, ssl = TRUE),
-                    authenticate = TRUE,
-                    send = TRUE)
+          
+          recip <- input$email
+          
+          if(recip!="")
+          {
+            tempfn = tempfile()
+            write(ret$str,tempfn)
+            
+            sender <- "SENDER@gmail.com"
+            recipients <- c(recip)
+            send.mail(from = sender,
+                      to = recipients,
+                      subject = "PhyloME result",
+                      body = "Hello,\nPhyloME completed the computation. Newick tree attached.",
+                      smtp = list(host.name = "smtp.gmail.com", port = 465, 
+                                  user.name = uname,            
+                                  passwd = pwd, ssl = TRUE),
+                      authenticate = TRUE,
+                      send = TRUE,
+                      attach.files = c(tempfn),
+                      file.names = c('tree.newick'))
+            
+            unlink(tempfn)
+          }
           
           
           
@@ -496,6 +511,8 @@ shinyServer( function(input,output,session) {
         output$status <- renderText({ sprintf("It took %g seconds", round(difftime(end,start,units="secs"))) })
         
       }
+    
+      shinyjs::enable("use")
       
     })
 
